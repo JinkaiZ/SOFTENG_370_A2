@@ -48,6 +48,8 @@ class Memory(LoggingMixIn, Operations):
             st_atime=time())
 
         self.fd += 1
+        # change owner to the real user.
+        self.chown(path, 1000, 1000)
         return self.fd
 
     def getattr(self, path, fh=None):
