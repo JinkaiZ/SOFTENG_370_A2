@@ -126,3 +126,5 @@ DEBUG:fuse.log-mixin:-> access /hello (2,)
 DEBUG:fuse.log-mixin:<- access 0
 DEBUG:fuse.log-mixin:-> unlink /hello ()
 DEBUG:fuse.log-mixin:<- unlink None
+
+Q3. Yes, we can use the chmod function to change the mode of the file to 777. 

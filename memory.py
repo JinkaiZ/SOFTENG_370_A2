@@ -2,6 +2,7 @@
 from __future__ import print_function, absolute_import, division
 
 import logging
+import os
 
 from collections import defaultdict
 from errno import ENOENT
@@ -49,7 +50,10 @@ class Memory(LoggingMixIn, Operations):
 
         self.fd += 1
         # change owner to the real user.
-        self.chown(path, 1000, 1000)
+        uid = os.getuid()
+        gid = os.getgid()
+
+        self.chown(path, uid, gid)
         return self.fd
 
     def getattr(self, path, fh=None):
@@ -80,6 +84,11 @@ class Memory(LoggingMixIn, Operations):
             st_atime=time())
 
         self.files['/']['st_nlink'] += 1
+        # change owner to the real user.
+        uid = os.getuid()
+        gid = os.getgid()
+
+        self.chown(path, uid, gid)
 
     def open(self, path, flags):
         self.fd += 1
