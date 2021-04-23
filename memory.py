@@ -8,7 +8,7 @@ from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from time import time
 
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, _libfuse
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 if not hasattr(__builtins__, 'bytes'):
     bytes = str
@@ -39,7 +39,6 @@ class Memory(LoggingMixIn, Operations):
         self.files[path]['st_gid'] = gid
 
     def create(self, path, mode):
-
         self.files[path] = dict(
             st_mode=(S_IFREG | mode),
             st_nlink=1,
@@ -47,10 +46,7 @@ class Memory(LoggingMixIn, Operations):
             st_ctime=time(),
             st_mtime=time(),
             st_atime=time())
-        self.chown(path, 1000, 1000)
-        ctxp = _libfuse.fuse_get_context()
-        ctx = ctxp.contents
-        print('The user id is {}, the group id is {}'.format(ctx.uid, ctx.gid))
+
         self.fd += 1
         return self.fd
 
@@ -66,7 +62,7 @@ class Memory(LoggingMixIn, Operations):
         try:
             return attrs[name]
         except KeyError:
-            return ''  # Should return ENOATTR
+            return ''       # Should return ENOATTR
 
     def listxattr(self, path):
         attrs = self.files[path].get('attrs', {})
@@ -102,7 +98,7 @@ class Memory(LoggingMixIn, Operations):
         try:
             del attrs[name]
         except KeyError:
-            pass  # Should return ENOATTR
+            pass        # Should return ENOATTR
 
     def rename(self, old, new):
         self.data[new] = self.data.pop(old)
@@ -148,17 +144,16 @@ class Memory(LoggingMixIn, Operations):
     def write(self, path, data, offset, fh):
         self.data[path] = (
             # make sure the data gets inserted at the right offset
-                self.data[path][:offset].ljust(offset, '\x00'.encode('ascii'))
-                + data
-                # and only overwrites the bytes that data is replacing
-                + self.data[path][offset + len(data):])
+            self.data[path][:offset].ljust(offset, '\x00'.encode('ascii'))
+            + data
+            # and only overwrites the bytes that data is replacing
+            + self.data[path][offset + len(data):])
         self.files[path]['st_size'] = len(self.data[path])
         return len(data)
 
 
 if __name__ == '__main__':
     import argparse
-
     parser = argparse.ArgumentParser()
     parser.add_argument('mount')
     args = parser.parse_args()
