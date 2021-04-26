@@ -23,7 +23,8 @@ def toggleBit(int_type, offset):
     mask = 1 << offset
     return (int_type ^ mask)
 
-print(testBit(7, 2))
-print(bin(setBit(2, 0)))
-print(bin(clearBit(7, 2)))
-print(bin(toggleBit(2, 0)))
+if __name__ == '__main__':
+  print(testBit(7, 2))
+  print((setBit(2, 0)))
+  print((clearBit(7, 2)))
+  print((toggleBit(2, 0)))

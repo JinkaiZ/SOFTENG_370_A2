@@ -1,3 +1,20 @@
+cd mount 
+
+getattr / (None,) - gets the file attributes associated with / which is the mount directory.
+The output is a dictionary. st_ctime is the creation time, st_mtime is the modified time,
+st_nlink is the number of hard links, st_atime is the last accessed time, st_mode is the file
+access mode.
+
+access / (1,) - checks the accessibility of the mount directory. Comes back with 0 which
+means ok
+
+{DEBUG:fuse.log-mixin:-> getattr / (None,)
+DEBUG:fuse.log-mixin:<- getattr {'st_ctime': 1617403556.219561,
+'st_mtime': 1617403556.219561, 'st_nlink': 2, 'st_atime':
+1617403556.219561, 'st_mode': 16877}
+DEBUG:fuse.log-mixin:-> access / (1,)
+DEBUG:fuse.log-mixin:<- access 0}
+
 cat > hello 
 
 getattr /hello (None,) - get the file attributes associated with /mount which is the hello file. The output gets the Errno 2 which is "No such file or directory". This is because that the file hello has not been created yet. 
@@ -6,7 +23,7 @@ create /hello (33204,) - create a file named "hello" with the file access mode i
 
 getattr /hello (1,) - get the file attributes associated with /mount/hello which is the hello file. The output  is a dictionary. st_ctime is the creation time, st_mtime is the modified time, st_nlink is the number of hard links, st_atime is the last accessed time, st_mode is the file access mode.
 
-flush /hello (1,) - flush any pending changes to the file associated with /mount/hello which is the hello file. The out put is 0 according to the return value in fuse library. The return 0 means the flush operation is complete because there is no more reply data is expected.  
+flush /hello (1,) - flush any pending changes to the file associated with /mount/hello which is the hello file. The return 0 means the flush operation is complete.  
 
 
 
@@ -45,9 +62,9 @@ DEBUG:fuse.log-mixin:<- write 12}
 
 ^D 
 
-flush /hello (1,) - Flush any pending changes to the file associated with /mount/hello which is the hello file with fd = 1. The return 0 means the flush operation is complete because there is no more reply data is expected.  
+flush /hello (1,) - Close the hello file and flush any pending changes to the file associated with /mount/hello. The return 0 means the flush operation is complete. 
 
-release /hello (1,) - Release the open file associated with /mount/hello which is the hello file with fd = 1.  TThe return 0 means the release operation is complete.
+release /hello (1,) - Release the open file associated with /mount/hello which is the hello file with fd = 1. As there are no more references to the hello file. The file descriptors are closed and all memory mappings are unmapped. The return 0 means the release operation is complete.
 
 DEBUG:fuse.log-mixin:-> flush /hello (1,)
 DEBUG:fuse.log-mixin:<- flush 0
@@ -127,4 +144,4 @@ DEBUG:fuse.log-mixin:<- access 0
 DEBUG:fuse.log-mixin:-> unlink /hello ()
 DEBUG:fuse.log-mixin:<- unlink None
 
-Q3. Yes, we can use the chmod function to change the mode of the file to 777. 
+Q3. Yes, we can use the chmod function to change the mode of the file to 777.  OR talk about the permission (allow_other)

@@ -3,8 +3,7 @@ from __future__ import print_function, absolute_import, division
 
 import logging
 import os
-
-
+import disktools
 from collections import defaultdict
 from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
@@ -16,13 +15,11 @@ if not hasattr(__builtins__, 'bytes'):
     bytes = str
 
 
-class Memory(LoggingMixIn, Operations):
+class Small(LoggingMixIn, Operations):
     'Example memory filesystem. Supports only one level of files.'
 
     def __init__(self):
-        #self.files = format.get_init()
         self.files = {}
-        #self.data = gormat.get_init_data
         self.data = defaultdict(bytes)
         self.fd = 0
         now = time()
@@ -32,6 +29,8 @@ class Memory(LoggingMixIn, Operations):
             st_mtime=now,
             st_atime=now,
             st_nlink=2)
+
+        disktools.write_block(0, disktools.int_to_bytes(self.files['/']['st_mode'],2))
 
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0o770000
@@ -52,11 +51,6 @@ class Memory(LoggingMixIn, Operations):
             st_atime=time())
 
         self.fd += 1
-        # change owner to the real user.
-        uid = os.getuid()
-        gid = os.getgid()
-
-        self.chown(path, uid, gid)
         return self.fd
 
     def getattr(self, path, fh=None):
@@ -86,12 +80,7 @@ class Memory(LoggingMixIn, Operations):
             st_mtime=time(),
             st_atime=time())
 
-        # The hard link of the root directory +1 because this is only one layer structure.
         self.files['/']['st_nlink'] += 1
-        # change owner to the real user.
-        uid = os.getuid()
-        gid = os.getgid()
-
         self.chown(path, uid, gid)
 
     def open(self, path, flags):
@@ -174,4 +163,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
-    fuse = FUSE(Memory(), args.mount, foreground=True)
+    fuse = FUSE(Small(), args.mount, foreground=True)
