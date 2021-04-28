@@ -24,7 +24,5 @@ def toggleBit(int_type, offset):
     return (int_type ^ mask)
 
 if __name__ == '__main__':
-  print(testBit(7, 2))
-  print((setBit(2, 0)))
-  print((clearBit(7, 2)))
-  print((toggleBit(2, 0)))
+
+  print((clearBit(2, 1)))

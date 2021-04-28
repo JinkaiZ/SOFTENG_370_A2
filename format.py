@@ -2,8 +2,9 @@
 
 import logging
 import os
+import bits
 import disktools
-import memory
+import small
 from collections import defaultdict
 from errno import ENOENT
 from stat import S_IFDIR, S_IFLNK, S_IFREG
@@ -15,24 +16,39 @@ BLOCK_SIZE = 64
 
 class Format():
 
-    def get_disk_info(self):
+    def get_free_block_bitmap(self):
+        # initialise the bitmap int value to 0
+        bitmap = 0
+        # counter for count the blocks
+        count = 0
         file = open("my-disk", "rb")
-        # block = slice(0, 1023, 64)
         file_content = file.read()
-        # get the total number of bytes of the disk.
-        total_num_bytes = len(file_content)
-        # get the total number of blocks of the disk.
-        total_num_blocks = total_num_bytes / BLOCK_SIZE
-        #super_block = file_content[0:3]
-        mode = file_content[0:2]
-        print(disktools.bytes_to_int(mode))
-        #F disktools.write_block(1, super_block)
+        # read each 64 bytes as a block
+        for i in range(0,1023,64):
+            block = file_content[i:i+64]
+            # If the first byte of a block is empty then the block is empty
+            # The first data will always write into the first byte for each block
+            if block[0] != 0:
+                bitmap = bits.clearBit(bitmap, count)
+                j+=1
+            else:
+                bitmap = bits.setBit(bitmap, count)
+                j+=1
 
-    #def get_root_dir_inode(self):
+        print(bitmap)
+        # write the bitmap value back to disk
+        disktools.write_block(0, disktools.int_to_bytes(bitmap, 2))
+        return 0
 
-
-
+    def set_root_dir_inode(self):
+        files['/'] = dict(
+            st_mode=(S_IFDIR | 0o755),
+            st_ctime=555.555,
+            st_mtime=444.444,
+            st_atime=3333.333,
+            st_nlink=2)
+        print(files)
 
 if __name__ == '__main__':
-    Format.get_disk_info(Format())
+    Format.set_root_dir_inode(Format())
 

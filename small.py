@@ -30,7 +30,11 @@ class Small(LoggingMixIn, Operations):
             st_atime=now,
             st_nlink=2)
 
-        disktools.write_block(0, disktools.int_to_bytes(self.files['/']['st_mode'],2))
+        dir_name = '/'
+        mode = self.files['/'].get('st_mode')
+        ctime = self.files['/'].get('st_ctime')
+        print("The mode value is ",  mode)
+        disktools.write_block(2, disktools.int_to_bytes(mode, 2))
 
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0o770000
