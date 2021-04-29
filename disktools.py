@@ -65,12 +65,12 @@ def bytes_to_int(bytes):
     return value
         
 if __name__ == '__main__':
-    # low_level_format()
-    #write_block(0, 'Hello world'.encode())
+    #low_level_format()
+    #write_block(1, 'Hello world'.encode())
     #write_block(1, 'Hello world'.encode())
 
-    a = read_block(2)[0:2]
-    b = bytes_to_int(a)
-    print(b)
-    os.system('od -v --address-radix=x -t x1 -a my-disk')
+    #a = read_block(0)
+
+    #print(bytes_to_int(a))
+    os.system('od  --address-radix=x -t x1 -a my-disk')
     

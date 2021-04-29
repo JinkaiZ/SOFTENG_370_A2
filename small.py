@@ -3,6 +3,8 @@ from __future__ import print_function, absolute_import, division
 
 import logging
 import os
+import sys
+from format import Format, MODE_START, MODE_FINISH, CTIME_START, CTIME_FINISH,MTIME_START,MTIME_FINISH,NLINK_START,NLINK_FINISH, ATIME_START, ATIME_FINISH
 import disktools
 from collections import defaultdict
 from errno import ENOENT
@@ -19,31 +21,42 @@ class Small(LoggingMixIn, Operations):
     'Example memory filesystem. Supports only one level of files.'
 
     def __init__(self):
-        self.files = {}
-        self.data = defaultdict(bytes)
-        self.fd = 0
-        now = time()
-        self.files['/'] = dict(
-            st_mode=(S_IFDIR | 0o755),
-            st_ctime=now,
-            st_mtime=now,
-            st_atime=now,
-            st_nlink=2)
+        block = disktools.read_block(0)
+        if disktools.bytes_to_int(block[2:44]) == 0:
+            self.files = {}
+            self.data = defaultdict(bytes)
+            self.fd = 0
+            now = time()
+            self.files['/'] = dict(
+                st_mode=(S_IFDIR | 0o755),
+                st_ctime=now,
+                st_mtime=now,
+                st_atime=now,
+                st_nlink=2)
 
-        dir_name = '/'
-        mode = self.files['/'].get('st_mode')
-        ctime = self.files['/'].get('st_ctime')
-        print("The mode value is ",  mode)
-        disktools.write_block(2, disktools.int_to_bytes(mode, 2))
-
-    def chmod(self, path, mode):
-        self.files[path]['st_mode'] &= 0o770000
-        self.files[path]['st_mode'] |= mode
-        return 0
-
-    def chown(self, path, uid, gid):
-        self.files[path]['st_uid'] = uid
-        self.files[path]['st_gid'] = gid
+            # get all the metadata for the root directory
+            dir_name = '/'
+            mode = self.files['/'].get('st_mode')
+            ctime = self.files['/'].get('st_ctime')
+            mtime = self.files['/'].get('st_mtime')
+            atime = self.files['/'].get('st_atime')
+            nlink = self.files['/'].get('st_nlink')
+            size = sys.getsizeof(self.files['/'])
+            uid = os.getuid()
+            gid = os.getgid()
+            # write all the metadata into disk
+            inode_data = Format.set_inode(Format, dir_name, mode, ctime, mtime, atime, nlink, uid, gid,size)
+            disktools.write_block(0, inode_data)
+        else:
+            self.files = {}
+            self.data = defaultdict(bytes)
+            self.fd = 0
+            self.files['/'] = dict(
+                st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
+                st_ctime=disktools.bytes_to_int(block[CTIME_START:CTIME_FINISH]),
+                st_mtime=disktools.bytes_to_int(block[MTIME_START:MTIME_FINISH]),
+                st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH]),
+                st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]))
 
     def create(self, path, mode):
         self.files[path] = dict(
@@ -53,6 +66,19 @@ class Small(LoggingMixIn, Operations):
             st_ctime=time(),
             st_mtime=time(),
             st_atime=time())
+
+        name = path
+        mode = self.files[path].get('st_mode')
+        ctime = self.files[path].get('st_ctime')
+        mtime = self.files[path].get('st_mtime')
+        atime = self.files[path].get('st_atime')
+        nlink = self.files[path].get('st_nlink')
+        size = sys.getsizeof(self.files[path])
+        uid = os.getuid()
+        gid = os.getgid()
+
+        inode_data = Format.set_inode(Format, name, mode, ctime, mtime, atime, nlink, uid, gid, size)
+        disktools.write_block(1, inode_data)
 
         self.fd += 1
         return self.fd
@@ -83,9 +109,6 @@ class Small(LoggingMixIn, Operations):
             st_ctime=time(),
             st_mtime=time(),
             st_atime=time())
-
-        self.files['/']['st_nlink'] += 1
-        self.chown(path, uid, gid)
 
     def open(self, path, flags):
         self.fd += 1
