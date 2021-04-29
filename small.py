@@ -45,10 +45,10 @@ class Small(LoggingMixIn, Operations):
             uid = os.getuid()
             gid = os.getgid()
             # write all the metadata into disk
-            inode_data = Format.set_inode(Format, dir_name, mode, ctime, mtime, atime, nlink, uid, gid,size)
+            inode_data = Format.set_inode(Format, dir_name, mode, ctime, mtime, atime, nlink, uid, gid,size,0)
             disktools.write_block(0, inode_data)
         else:
-            self.files = {}
+            self.files = Format.get_files(Format)
             self.data = defaultdict(bytes)
             self.fd = 0
             self.files['/'] = dict(
@@ -73,12 +73,16 @@ class Small(LoggingMixIn, Operations):
         mtime = self.files[path].get('st_mtime')
         atime = self.files[path].get('st_atime')
         nlink = self.files[path].get('st_nlink')
-        size = sys.getsizeof(self.files[path])
+        size = self.files[path].get('st_size')
         uid = os.getuid()
         gid = os.getgid()
 
-        inode_data = Format.set_inode(Format, name, mode, ctime, mtime, atime, nlink, uid, gid, size)
-        disktools.write_block(1, inode_data)
+        num_array = Format.get_free_block(Format, 1)
+        block_num = num_array[0]
+
+        inode_data = Format.set_inode(Format, name, mode, ctime, mtime, atime, nlink, uid, gid, size, block_num)
+        disktools.write_block(block_num, inode_data)
+        Format.update_free_block_bitmap(Format)
 
         self.fd += 1
         return self.fd
@@ -88,18 +92,6 @@ class Small(LoggingMixIn, Operations):
             raise FuseOSError(ENOENT)
 
         return self.files[path]
-
-    def getxattr(self, path, name, position=0):
-        attrs = self.files[path].get('attrs', {})
-
-        try:
-            return attrs[name]
-        except KeyError:
-            return ''       # Should return ENOATTR
-
-    def listxattr(self, path):
-        attrs = self.files[path].get('attrs', {})
-        return attrs.keys()
 
     def mkdir(self, path, mode):
         self.files[path] = dict(
@@ -118,7 +110,8 @@ class Small(LoggingMixIn, Operations):
         return self.data[path][offset:offset + size]
 
     def readdir(self, path, fh):
-        return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+            return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+
 
     def readlink(self, path):
         return self.data[path]

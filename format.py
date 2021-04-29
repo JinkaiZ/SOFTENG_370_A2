@@ -44,9 +44,10 @@ NAME_FINISH = 44
 
 
 
-
+files = [str]
 
 class Format:
+
 
     def initial_bitmap(self):
         self.update_free_block_bitmap(Format)
@@ -89,16 +90,10 @@ class Format:
         for idx, val in enumerate(bit_array):
             if val == 1:
                 free_block.append(idx)
-
         return free_block[0:num_of_blocks]
 
-
-
-
-
-
-    def set_inode(self, name, mode, ctime, mtime, atime, nlink, uid, gid, size):
-        block = disktools.read_block(0)
+    def set_inode(self, name, mode, ctime, mtime, atime, nlink, uid, gid, size, block_num):
+        block = disktools.read_block(block_num)
         block[MODE_START:MODE_FINISH] = disktools.int_to_bytes(mode, 2)
         block[UID_START:UID_FINISH] = disktools.int_to_bytes(uid, 2)
         block[GID_START:GID_FINISH] = disktools.int_to_bytes(gid, 2)
@@ -111,13 +106,30 @@ class Format:
 
         return block
 
+    def get_files(self):
+        files = {}
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH] != 0:
+                    files[block[NAME_START:NAME_FINISH].decode().rstrip('\x00')] = dict(
+                    st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
+                    st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]),
+                    st_size=disktools.bytes_to_int(block[SIZE_START:SIZE_FINISH] ),
+                    st_ctime=disktools.bytes_to_int(block[CTIME_START:CTIME_FINISH]),
+                    st_mtime=disktools.bytes_to_int(block[MTIME_START:MTIME_FINISH]),
+                    st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH])
+                    )
+
+
+        return files
+
+
 
 if __name__ == '__main__':
-    # Format.initial_bitmap(Format)
-    # Format.update_free_block_bitmap(Format)
+    #Format.initial_bitmap(Format)
+    #Format.update_free_block_bitmap(Format)
 
-    a = Format.get_free_block(Format, 3)
-    print(a)
+    #a = Format.get_free_block(Format, 1)
+    print(Format.get_files(Format))
 
     # block = disktools.read_block(1)
-    # print(len(block))
