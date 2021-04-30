@@ -38,13 +38,14 @@ ATIME_FINISH = 23
 SIZE_START = 23
 SIZE_FINISH = 25
 LOCATION_START = 25
-LOCATION_FINISH = 28
-NAME_START = 28
-NAME_FINISH = 44
+LOCATION_FINISH = 27
+NAME_START = 27
+NAME_FINISH = 43
 
 
 
-files = [str]
+
+
 
 class Format:
 
@@ -102,6 +103,7 @@ class Format:
         block[CTIME_START:CTIME_FINISH] = disktools.int_to_bytes(int(ctime), 4)
         block[MTIME_START:MTIME_FINISH] = disktools.int_to_bytes(int(mtime), 4)
         block[ATIME_START:ATIME_FINISH] = disktools.int_to_bytes(int(atime), 4)
+        block[LOCATION_START:LOCATION_FINISH] = disktools.int_to_bytes(0,2)
         block[NAME_START:NAME_FINISH] = name.encode()
 
         return block
@@ -110,8 +112,9 @@ class Format:
         files = {}
         for i in range(1,NUM_BLOCKS,1):
             block = disktools.read_block(i)
-            if block[NAME_START:NAME_FINISH] != 0:
-                    files[block[NAME_START:NAME_FINISH].decode().rstrip('\x00')] = dict(
+            if (block[NAME_START:NAME_FINISH].decode().rstrip('\x00') != '') & disktools.bytes_to_int(block[0:2]) == 0:
+
+                files[block[NAME_START:NAME_FINISH].decode().rstrip('\x00')] = dict(
                     st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
                     st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]),
                     st_size=disktools.bytes_to_int(block[SIZE_START:SIZE_FINISH] ),
@@ -120,8 +123,85 @@ class Format:
                     st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH])
                     )
 
-
         return files
+
+    def get_data(self):
+        total_data =  defaultdict(bytes)
+        for i in range(1,NUM_BLOCKS,1):
+            file_data = []
+            data_block = []
+            num_array = []
+            block = disktools.read_block(i)
+            path = block[NAME_START:NAME_FINISH].decode().rstrip('\x00')
+
+
+            if (disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0) & disktools.bytes_to_int(block[0:2]) == 0:
+                block_number = disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH])
+                block_number_bin = bin(block_number)
+
+
+                for b in block_number_bin[2:]:
+                    num_array.append(int(b))
+
+                num_array = list(reversed(num_array))
+
+
+                for idx, val in enumerate(num_array):
+                    if val == 1:
+                        data_block.append(idx)
+
+
+                for data in data_block:
+                    print(disktools.read_block(data))
+                    file_content = disktools.read_block(data).decode().rstrip('\x00')
+
+                    file_data.append(file_content)
+
+
+                file_data = ''.join(map(str, file_data))
+                file_data = file_data.encode()
+                total_data[path] = (
+                    file_data
+                )
+
+        return total_data
+
+    def update_file_location(self, path, bitmap):
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                block[LOCATION_START:LOCATION_FINISH] = disktools.int_to_bytes(bitmap, 2)
+                disktools.write_block(i, block)
+
+        return 0
+
+    def set_data_block_bitmap(self, block_num_array):
+        # initialise the bitmap int value to 0
+        bitmap = 0
+        for i in block_num_array:
+            bitmap = bits.setBit(bitmap, i)
+
+        return bitmap
+
+    def update_size(self, path,size):
+
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                block[SIZE_START:SIZE_FINISH] = disktools.int_to_bytes(size, 2)
+                disktools.write_block(i, block)
+
+        return 0
+
+    def get_block(self, path):
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                return i
+
+
+
+
 
 
 
@@ -129,7 +209,12 @@ if __name__ == '__main__':
     #Format.initial_bitmap(Format)
     #Format.update_free_block_bitmap(Format)
 
+    a = Format.get_files(Format)
+
+
+    #b = [2,3,4]
+    #a = Format.set_data_block_bitmap(Format,b)
     #a = Format.get_free_block(Format, 1)
-    print(Format.get_files(Format))
+    print(a)
 
     # block = disktools.read_block(1)

@@ -13,6 +13,8 @@ from time import time
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
+BLOCK_SIZE = 64
+
 if not hasattr(__builtins__, 'bytes'):
     bytes = str
 
@@ -49,7 +51,7 @@ class Small(LoggingMixIn, Operations):
             disktools.write_block(0, inode_data)
         else:
             self.files = Format.get_files(Format)
-            self.data = defaultdict(bytes)
+            self.data = Format.get_data(Format)
             self.fd = 0
             self.files['/'] = dict(
                 st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
@@ -59,6 +61,7 @@ class Small(LoggingMixIn, Operations):
                 st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]))
 
     def create(self, path, mode):
+
         self.files[path] = dict(
             st_mode=(S_IFREG | mode),
             st_nlink=1,
@@ -84,14 +87,19 @@ class Small(LoggingMixIn, Operations):
         disktools.write_block(block_num, inode_data)
         Format.update_free_block_bitmap(Format)
 
+
         self.fd += 1
         return self.fd
 
     def getattr(self, path, fh=None):
+
         if path not in self.files:
             raise FuseOSError(ENOENT)
 
         return self.files[path]
+
+    def flush(self, path, fh):
+        return 0
 
     def mkdir(self, path, mode):
         self.files[path] = dict(
@@ -166,6 +174,11 @@ class Small(LoggingMixIn, Operations):
         self.files[path]['st_mtime'] = mtime
 
     def write(self, path, data, offset, fh):
+        print("CHECKKKKKKKKKKK", self.data[path])
+        # block_num = Format.get_block(Format, path)
+        # block = disktools.read_block(block_num)
+        # offset = disktools.bytes_to_int(block[OFFSET_START:OFFSET_FINISH])
+
         self.data[path] = (
             # make sure the data gets inserted at the right offset
             self.data[path][:offset].ljust(offset, '\x00'.encode('ascii'))
@@ -173,6 +186,32 @@ class Small(LoggingMixIn, Operations):
             # and only overwrites the bytes that data is replacing
             + self.data[path][offset + len(data):])
         self.files[path]['st_size'] = len(self.data[path])
+
+
+        # get the length of input data
+        size = len(data)
+        # calculate the number of blocks that need to store the data
+        no_of_blocks = (size // BLOCK_SIZE) + 1
+        # get the free blocks
+        num_array = Format.get_free_block(Format, no_of_blocks)
+        # set the data block bitmap
+        data_block_bitmap = Format.set_data_block_bitmap(Format, num_array)
+        # get the input data
+        input_data = self.data[path]
+
+        # save the data to disk into the allocated blocks
+        for i in range(no_of_blocks):
+            if no_of_blocks == 1:
+                disktools.write_block(num_array[i], input_data)
+            else:
+                disktools.write_block(num_array[i], input_data[i*64:i*64+64])
+        # Add the data block bitmap into the metadata information
+        Format.update_file_location(Format, path, data_block_bitmap)
+        # update the st_size in the metadata
+        Format.update_size(Format, path, self.files[path]['st_size'])
+        # update the free block bitmap
+        Format.update_free_block_bitmap(Format)
+
         return len(data)
 
 

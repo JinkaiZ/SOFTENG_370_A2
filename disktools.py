@@ -69,8 +69,11 @@ if __name__ == '__main__':
     #write_block(1, 'Hello world'.encode())
     #write_block(1, 'Hello world'.encode())
 
-    #a = read_block(0)
+    # a = read_block(1)
+    # b = a[25:27]
+    # c = bytes_to_int(b)
+    # print(c)
 
     #print(bytes_to_int(a))
-    os.system('od  --address-radix=x -t x1 -a my-disk')
+    os.system('od -v --address-radix=x -t x1 -a my-disk')
     
