@@ -75,5 +75,5 @@ if __name__ == '__main__':
     # print(c)
 
     #print(bytes_to_int(a))
-    os.system('od -v --address-radix=x -t x1 -a my-disk')
+    os.system('od  --address-radix=x -t x1 -a my-disk')
     

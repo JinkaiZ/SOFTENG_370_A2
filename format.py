@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 
-import logging
 import os
 import bits
 import disktools
 from collections import defaultdict
 from errno import ENOENT
-from stat import S_IFDIR, S_IFLNK, S_IFREG
 from time import time
 
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 NUM_BLOCKS = 16
 BLOCK_SIZE = 64
@@ -199,6 +196,38 @@ class Format:
             if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
                 return i
 
+    def clear_metadata_block(self, path):
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                clean_block = bytearray([0] * BLOCK_SIZE)
+                disktools.write_block(i, clean_block)
+
+    def clear_data_block(self, path):
+        for i in range(1,NUM_BLOCKS,1):
+            data_block = []
+            num_array = []
+            clean_block = bytearray([0] * BLOCK_SIZE)
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+
+                block_number = disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH])
+                block_number_bin = bin(block_number)
+
+                for b in block_number_bin[2:]:
+                    num_array.append(int(b))
+
+                num_array = list(reversed(num_array))
+
+                for idx, val in enumerate(num_array):
+                    if val == 1:
+                        data_block.append(idx)
+
+                for data in data_block:
+                    print(data)
+                    disktools.write_block(data, clean_block)
+
+
 
 
 
@@ -206,11 +235,10 @@ class Format:
 
 
 if __name__ == '__main__':
-    #Format.initial_bitmap(Format)
-    #Format.update_free_block_bitmap(Format)
+    Format.initial_bitmap(Format)
+    Format.update_free_block_bitmap(Format)
 
-    a = Format.get_files(Format)
-
+    a = Format.clear_data_block(Format, '/file3')
 
     #b = [2,3,4]
     #a = Format.set_data_block_bitmap(Format,b)

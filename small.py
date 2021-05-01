@@ -98,8 +98,15 @@ class Small(LoggingMixIn, Operations):
 
         return self.files[path]
 
-    def flush(self, path, fh):
+    def chmod(self, path, mode):
+        self.files[path]['st_mode'] &= 0o770000
+        self.files[path]['st_mode'] |= mode
         return 0
+
+    def chown(self, path, uid, gid):
+        self.files[path]['st_uid'] = uid
+        self.files[path]['st_gid'] = gid
+
 
     def mkdir(self, path, mode):
         self.files[path] = dict(
@@ -163,9 +170,17 @@ class Small(LoggingMixIn, Operations):
             length, '\x00'.encode('ascii'))
         self.files[path]['st_size'] = length
 
+
     def unlink(self, path):
         self.data.pop(path)
         self.files.pop(path)
+        Format.clear_data_block(Format, path)
+        Format.update_free_block_bitmap(Format)
+        Format.clear_metadata_block(Format, path)
+        Format.update_free_block_bitmap(Format)
+
+
+
 
     def utimens(self, path, times=None):
         now = time()
@@ -174,10 +189,6 @@ class Small(LoggingMixIn, Operations):
         self.files[path]['st_mtime'] = mtime
 
     def write(self, path, data, offset, fh):
-        print("CHECKKKKKKKKKKK", self.data[path])
-        # block_num = Format.get_block(Format, path)
-        # block = disktools.read_block(block_num)
-        # offset = disktools.bytes_to_int(block[OFFSET_START:OFFSET_FINISH])
 
         self.data[path] = (
             # make sure the data gets inserted at the right offset
