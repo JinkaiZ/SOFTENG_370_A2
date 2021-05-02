@@ -275,12 +275,24 @@ class Format:
 
                 self.update_bit_map(self, data_block)
 
+    """ Check the file has data or not"""
+    def check_file_data(self, path):
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0
+                return True
+            else:
+                return False
+
+
+
 
 
 
 
 if __name__ == '__main__':
-    #Format.initial_disk(Format)
+    Format.initial_disk(Format)
     a = Format.get_data(Format)
     #used_block = [1,2]
     #path = '/file1'

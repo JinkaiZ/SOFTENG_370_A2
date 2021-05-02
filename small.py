@@ -170,9 +170,11 @@ class Small(LoggingMixIn, Operations):
 
 
     def unlink(self, path):
-        self.data.pop(path)
+        if Format.check_file_data(Format, path):
+            self.data.pop(path)
+            Format.clear_data_block(Format, path)
+
         self.files.pop(path)
-        Format.clear_data_block(Format, path)
         Format.clear_metadata_block(Format, path)
 
     def utimens(self, path, times=None):
