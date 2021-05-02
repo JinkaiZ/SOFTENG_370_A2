@@ -110,11 +110,13 @@ class Small(LoggingMixIn, Operations):
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0o770000
         self.files[path]['st_mode'] |= mode
+        Format.update_mode(Format, path, mode)
         return 0
 
     def chown(self, path, uid, gid):
         self.files[path]['st_uid'] = uid
         self.files[path]['st_gid'] = gid
+        Format.update_owner(Format, path, uid, gid)
 
     def mkdir(self, path, mode):
         self.files[path] = dict(
@@ -138,27 +140,15 @@ class Small(LoggingMixIn, Operations):
     def readlink(self, path):
         return self.data[path]
 
-    def removexattr(self, path, name):
-        attrs = self.files[path].get('attrs', {})
-
-        try:
-            del attrs[name]
-        except KeyError:
-            pass        # Should return ENOATTR
-
     def rename(self, old, new):
         self.data[new] = self.data.pop(old)
         self.files[new] = self.files.pop(old)
+        Format.update_name(Format, old, new)
 
     def rmdir(self, path):
         # with multiple level support, need to raise ENOTEMPTY if contains any files
         self.files.pop(path)
         self.files['/']['st_nlink'] -= 1
-
-    def setxattr(self, path, name, value, options, position=0):
-        # Ignore options
-        attrs = self.files[path].setdefault('attrs', {})
-        attrs[name] = value
 
     def statfs(self, path):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)

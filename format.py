@@ -19,23 +19,23 @@ BITMAP_FINISH = 2
 MODE_START = 2
 MODE_FINISH = 4
 UID_START = 4
-UID_FINISH = 8
-GID_START = 8
-GID_FINISH = 10
-NLINK_START = 10
-NLINK_FINISH = 11
-CTIME_START = 11
-CTIME_FINISH = 15
-MTIME_START = 15
-MTIME_FINISH = 19
-ATIME_START = 19
-ATIME_FINISH = 23
-SIZE_START = 23
-SIZE_FINISH = 25
-LOCATION_START = 25
-LOCATION_FINISH = 27
-NAME_START = 27
-NAME_FINISH = 43
+UID_FINISH = 6
+GID_START = 6
+GID_FINISH = 8
+NLINK_START = 8
+NLINK_FINISH = 9
+CTIME_START = 9
+CTIME_FINISH = 13
+MTIME_START = 13
+MTIME_FINISH = 17
+ATIME_START = 17
+ATIME_FINISH = 21
+SIZE_START = 21
+SIZE_FINISH = 23
+LOCATION_START = 23
+LOCATION_FINISH = 25
+NAME_START = 25
+NAME_FINISH = 41
 
 class Format:
 
@@ -130,7 +130,9 @@ class Format:
                     st_size=disktools.bytes_to_int(block[SIZE_START:SIZE_FINISH] ),
                     st_ctime=disktools.bytes_to_int(block[CTIME_START:CTIME_FINISH]),
                     st_mtime=disktools.bytes_to_int(block[MTIME_START:MTIME_FINISH]),
-                    st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH])
+                    st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH]),
+                    st_gid=disktools.bytes_to_int(block[GID_START:GID_FINISH]),
+                    st_uid=disktools.bytes_to_int(block[UID_START:UID_FINISH])
                     )
 
         return files
@@ -147,6 +149,7 @@ class Format:
             path = block[NAME_START:NAME_FINISH].decode().rstrip('\x00')
             # if the location bytes are not empty & the first two bytes are empty means the block saves metadata of a file.
             if (disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0) & (disktools.bytes_to_int(block[0:2]) == 0):
+                print("The block number is ", i)
                 # get the bitmap of the location of the file data.
                 block_number = disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH])
                 block_number_bin = bin(block_number)
@@ -205,11 +208,36 @@ class Format:
 
         return 0
 
-    def get_block(self, path):
+    def update_name(self, path,new_path):
+
         for i in range(1,NUM_BLOCKS,1):
             block = disktools.read_block(i)
             if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
-                return i
+                block[NAME_START:NAME_FINISH] = new_path.encode()
+                disktools.write_block(i, block)
+
+        return 0
+
+    def update_mode(self, path, mode):
+
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                block[MODE_START:MODE_FINISH] = disktools.int_to_bytes(mode, 2)
+                disktools.write_block(i, block)
+
+        return 0
+
+    def update_owner(self, path, uid, gid):
+
+        for i in range(1,NUM_BLOCKS,1):
+            block = disktools.read_block(i)
+            if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                block[UID_START:UID_FINISH] = disktools.int_to_bytes(uid, 2)
+                block[GID_START:GID_FINISH] = disktools.int_to_bytes(gid, 2)
+                disktools.write_block(i, block)
+
+        return 0
 
     def clear_metadata_block(self, path):
         for i in range(1,NUM_BLOCKS,1):
@@ -252,8 +280,8 @@ class Format:
 
 
 if __name__ == '__main__':
-    Format.initial_disk(Format)
-    #a = Format.get_data(Format)
+    #Format.initial_disk(Format)
+    a = Format.get_data(Format)
     #used_block = [1,2]
     #path = '/file1'
     #a = Format.clear_metadata_block(Format, path)
@@ -261,6 +289,6 @@ if __name__ == '__main__':
     #b = [2,3,4]
     #a = Format.set_data_block_bitmap(Format,b)
     #a = Format.get_free_block(Format, 1)
-    #print(a)
+    print(a)
 
     # block = disktools.read_block(1)
