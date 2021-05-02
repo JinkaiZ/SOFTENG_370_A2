@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+
+"""
+    The small.py to use for Operating Systems Assignment 2 2021
+    written by: Jinkai Zhang
+                UPI: Jzha541
+
+"""
+
 from __future__ import print_function, absolute_import, division
 
 import logging
@@ -80,13 +88,14 @@ class Small(LoggingMixIn, Operations):
         uid = os.getuid()
         gid = os.getgid()
 
+        # get free block for the new created file to save the metadata.
         num_array = Format.get_free_block(Format, 1)
         block_num = num_array[0]
-
+        # set up the location in the disk
         inode_data = Format.set_inode(Format, name, mode, ctime, mtime, atime, nlink, uid, gid, size, block_num)
         disktools.write_block(block_num, inode_data)
-        Format.update_free_block_bitmap(Format)
-
+        # update the free block bitmap
+        Format.update_bit_map(Format, num_array)
 
         self.fd += 1
         return self.fd
@@ -107,7 +116,6 @@ class Small(LoggingMixIn, Operations):
         self.files[path]['st_uid'] = uid
         self.files[path]['st_gid'] = gid
 
-
     def mkdir(self, path, mode):
         self.files[path] = dict(
             st_mode=(S_IFDIR | mode),
@@ -126,7 +134,6 @@ class Small(LoggingMixIn, Operations):
 
     def readdir(self, path, fh):
             return ['.', '..'] + [x[1:] for x in self.files if x != '/']
-
 
     def readlink(self, path):
         return self.data[path]
@@ -169,18 +176,14 @@ class Small(LoggingMixIn, Operations):
         self.data[path] = self.data[path][:length].ljust(
             length, '\x00'.encode('ascii'))
         self.files[path]['st_size'] = length
+        Format.clear_data_block(Format, path)
 
 
     def unlink(self, path):
         self.data.pop(path)
         self.files.pop(path)
         Format.clear_data_block(Format, path)
-        Format.update_free_block_bitmap(Format)
         Format.clear_metadata_block(Format, path)
-        Format.update_free_block_bitmap(Format)
-
-
-
 
     def utimens(self, path, times=None):
         now = time()
@@ -200,11 +203,12 @@ class Small(LoggingMixIn, Operations):
 
 
         # get the length of input data
-        size = len(data)
+        size = len(self.data[path])
         # calculate the number of blocks that need to store the data
         no_of_blocks = (size // BLOCK_SIZE) + 1
         # get the free blocks
         num_array = Format.get_free_block(Format, no_of_blocks)
+        Format.clear_data_block(Format, path)
         # set the data block bitmap
         data_block_bitmap = Format.set_data_block_bitmap(Format, num_array)
         # get the input data
@@ -221,7 +225,7 @@ class Small(LoggingMixIn, Operations):
         # update the st_size in the metadata
         Format.update_size(Format, path, self.files[path]['st_size'])
         # update the free block bitmap
-        Format.update_free_block_bitmap(Format)
+        Format.update_bit_map(Format, num_array)
 
         return len(data)
 

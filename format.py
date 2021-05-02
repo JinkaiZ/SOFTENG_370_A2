@@ -5,12 +5,10 @@ import bits
 import disktools
 from collections import defaultdict
 from errno import ENOENT
-from time import time
 
 
 NUM_BLOCKS = 16
 BLOCK_SIZE = 64
-DISK_NAME = 'my-disk'
 
 # Fix metadata locations in for root directory block
 BITMAP_START = 0
@@ -39,18 +37,14 @@ LOCATION_FINISH = 27
 NAME_START = 27
 NAME_FINISH = 43
 
-
-
-
-
-
 class Format:
 
+    """ loop through the disk and create the initial bitmap for the disk. 0 means used, 1 means free """
+    def initial_disk(self):
+        self.initial_free_block_bitmap(Format)
 
-    def initial_bitmap(self):
-        self.update_free_block_bitmap(Format)
 
-    def update_free_block_bitmap(self):
+    def initial_free_block_bitmap(self):
         # initialise the bitmap int value to 0
         bitmap = 0
         # counter for count the blocks
@@ -67,29 +61,47 @@ class Format:
                 bitmap = bits.setBit(bitmap, count)
                 count += 1
 
+        # set the first block to 1 which means it is not free(will store bitmap into block 0).
+        bitmap = bits.clearBit(bitmap, 0)
         # write the bitmap value at the first two bytes at block 0
+        bitmap_disk = disktools.read_block(0)
+        bitmap_disk[BITMAP_START:BITMAP_FINISH] = disktools.int_to_bytes(bitmap, 2)
+        disktools.write_block(0, bitmap_disk)
+
+    """ pass a int array that represent the position index of the block which the state will be change """
+    def update_bit_map(self, used_block):
         block = disktools.read_block(0)
+        # get the int number of bitmap
+        bitmap = disktools.bytes_to_int(block[BITMAP_START:BITMAP_FINISH])
+
+        for i in used_block:
+            bitmap = bits.toggleBit(bitmap, i)
+
         block[BITMAP_START:BITMAP_FINISH] = disktools.int_to_bytes(bitmap, 2)
         disktools.write_block(0, block)
-
         return bitmap
 
-    # return the first int of the
+    """ pass a int array of the required number of free block, return a int array with the free block numbers """
     def get_free_block(self, num_of_blocks):
+        block = disktools.read_block(0)
         bit_array = []
         free_block = []
-        bitmap_int = self.update_free_block_bitmap(Format)
+        # get int value of bitmap
+        bitmap_int = disktools.bytes_to_int(block[BITMAP_START:BITMAP_FINISH])
+        # transfer the bitmap to binary
         bitmap_bin = bin(bitmap_int)
+        # add each bit into a int array
         for b in bitmap_bin[2:]:
             bit_array.append(int(b))
-
+        # reverse the order of the array
         bit_array = reversed(bit_array)
-
+        # return the index of each bit which is 1
         for idx, val in enumerate(bit_array):
             if val == 1:
                 free_block.append(idx)
         return free_block[0:num_of_blocks]
 
+    """ set the medata of a file (position in block) """
     def set_inode(self, name, mode, ctime, mtime, atime, nlink, uid, gid, size, block_num):
         block = disktools.read_block(block_num)
         block[MODE_START:MODE_FINISH] = disktools.int_to_bytes(mode, 2)
@@ -105,12 +117,13 @@ class Format:
 
         return block
 
+    """ return the files which has the same data structure as the files in memory """
     def get_files(self):
         files = {}
-        for i in range(1,NUM_BLOCKS,1):
+        for i in range(1, NUM_BLOCKS, 1):
             block = disktools.read_block(i)
-            if (block[NAME_START:NAME_FINISH].decode().rstrip('\x00') != '') & disktools.bytes_to_int(block[0:2]) == 0:
-
+            if (block[NAME_START:NAME_FINISH].decode().rstrip('\x00') != '') & (disktools.bytes_to_int(block[0:2]) == 0):
+                print("block number", i)
                 files[block[NAME_START:NAME_FINISH].decode().rstrip('\x00')] = dict(
                     st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
                     st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]),
@@ -122,47 +135,49 @@ class Format:
 
         return files
 
+    """ return the data which has the same data structure as the data in memory """
     def get_data(self):
-        total_data =  defaultdict(bytes)
-        for i in range(1,NUM_BLOCKS,1):
+        total_data = defaultdict(bytes)
+
+        for i in range(1, NUM_BLOCKS, 1):
             file_data = []
             data_block = []
             num_array = []
             block = disktools.read_block(i)
             path = block[NAME_START:NAME_FINISH].decode().rstrip('\x00')
-
-
-            if (disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0) & disktools.bytes_to_int(block[0:2]) == 0:
+            # if the location bytes are not empty & the first two bytes are empty means the block saves metadata of a file.
+            if (disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0) & (disktools.bytes_to_int(block[0:2]) == 0):
+                # get the bitmap of the location of the file data.
                 block_number = disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH])
                 block_number_bin = bin(block_number)
-
 
                 for b in block_number_bin[2:]:
                     num_array.append(int(b))
 
                 num_array = list(reversed(num_array))
 
-
                 for idx, val in enumerate(num_array):
                     if val == 1:
                         data_block.append(idx)
-
-
+                #read the data in each block
                 for data in data_block:
+                    print("The block number is ", data)
                     print(disktools.read_block(data))
                     file_content = disktools.read_block(data).decode().rstrip('\x00')
-
+                    print("The file content", file_content)
                     file_data.append(file_content)
-
-
+                    print("The file data", file_data)
+                # combine all the data if needed.
                 file_data = ''.join(map(str, file_data))
                 file_data = file_data.encode()
+                # form the same structure as the data variable in memory
                 total_data[path] = (
                     file_data
                 )
 
         return total_data
 
+    """ update the location in metadata """
     def update_file_location(self, path, bitmap):
         for i in range(1,NUM_BLOCKS,1):
             block = disktools.read_block(i)
@@ -200,8 +215,11 @@ class Format:
         for i in range(1,NUM_BLOCKS,1):
             block = disktools.read_block(i)
             if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
+                num_array = []
                 clean_block = bytearray([0] * BLOCK_SIZE)
                 disktools.write_block(i, clean_block)
+                num_array.append(i)
+                self.update_bit_map(self, num_array)
 
     def clear_data_block(self, path):
         for i in range(1,NUM_BLOCKS,1):
@@ -224,25 +242,25 @@ class Format:
                         data_block.append(idx)
 
                 for data in data_block:
-                    print(data)
+
                     disktools.write_block(data, clean_block)
 
-
-
+                self.update_bit_map(self, data_block)
 
 
 
 
 
 if __name__ == '__main__':
-    Format.initial_bitmap(Format)
-    Format.update_free_block_bitmap(Format)
-
-    a = Format.clear_data_block(Format, '/file3')
+    Format.initial_disk(Format)
+    #a = Format.get_data(Format)
+    #used_block = [1,2]
+    #path = '/file1'
+    #a = Format.clear_metadata_block(Format, path)
 
     #b = [2,3,4]
     #a = Format.set_data_block_bitmap(Format,b)
     #a = Format.get_free_block(Format, 1)
-    print(a)
+    #print(a)
 
     # block = disktools.read_block(1)
