@@ -15,7 +15,7 @@ import sys
 from format import Format, MODE_START, MODE_FINISH, CTIME_START, CTIME_FINISH,MTIME_START,MTIME_FINISH,NLINK_START,NLINK_FINISH, ATIME_START, ATIME_FINISH
 import disktools
 from collections import defaultdict
-from errno import ENOENT
+from errno import ENOENT, ENOTEMPTY
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from time import time
 
@@ -126,6 +126,24 @@ class Small(LoggingMixIn, Operations):
             st_ctime=time(),
             st_mtime=time(),
             st_atime=time())
+        name = path
+        mode = self.files[path].get('st_mode')
+        ctime = self.files[path].get('st_ctime')
+        mtime = self.files[path].get('st_mtime')
+        atime = self.files[path].get('st_atime')
+        nlink = self.files[path].get('st_nlink')
+        size = self.files[path].get('st_size')
+        uid = os.getuid()
+        gid = os.getgid()
+
+        # get free block for the new created file to save the metadata.
+        num_array = Format.get_free_block(Format, 1)
+        block_num = num_array[0]
+        # set up the location in the disk
+        inode_data = Format.set_inode(Format, name, mode, ctime, mtime, atime, nlink, uid, gid, size, block_num)
+        disktools.write_block(block_num, inode_data)
+        # update the free block bitmap
+        Format.update_bit_map(Format, num_array)
 
     def open(self, path, flags):
         self.fd += 1
@@ -135,7 +153,15 @@ class Small(LoggingMixIn, Operations):
         return self.data[path][offset:offset + size]
 
     def readdir(self, path, fh):
-            return ['.', '..'] + [x[1:] for x in self.files if x != '/']
+        print("This is the dirct", self.files)
+        length = len(path)
+        if path == '/':
+            return ['.', '..'] + [x[length:] for x in self.files if (Format.check_path_name(Format,x[length:])) & (x != path)]
+        else:
+            for x in self.files:
+                print("This is the path", x[length +1:])
+            return ['.', '..'] + [x[length + 1:] for x in self.files if (Format.check_path_name(Format, x[length + 1:])) & (x[0:length] == path) & (x[length + 1:] != '')]
+
 
     def readlink(self, path):
         return self.data[path]
@@ -147,8 +173,21 @@ class Small(LoggingMixIn, Operations):
 
     def rmdir(self, path):
         # with multiple level support, need to raise ENOTEMPTY if contains any files
-        self.files.pop(path)
-        self.files['/']['st_nlink'] -= 1
+        length = len(path)
+        print("This is path", path)
+        flag = True
+        for x in self.files:
+            print("This is x", x)
+            if ((x[0:length] == path) & (x != path) & (x[length:] != '')) :
+                flag = False
+
+        if flag:
+            self.files.pop(path)
+            Format.clear_metadata_block(Format, path)
+        else:
+            raise ENOTEMPTY
+
+        #self.files['/']['st_nlink'] -= 1
 
     def statfs(self, path):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)

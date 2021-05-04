@@ -133,7 +133,7 @@ getattr /hello (None,) - get the file attributes associated with /mount/hello wh
 access /hello (2,) - checks the accessibility of the hello file. Comes back with 0 which
 means okay.
 
-unlink /hello () - unlink the pointer to the hello file. There is no return statement for unlink function. The output is None. 
+unlink /hello () - unlink to the hello file. Pop out the data form files and data dictionaries. There is no return statement for unlink function. The output is None. 
 
 DEBUG:fuse.log-mixin:-> getattr / (None,)
 DEBUG:fuse.log-mixin:<- getattr {'st_mode': 16877, 'st_ctime': 1619147846.8163872, 'st_mtime': 1619147846.8163872, 'st_atime': 1619147846.8163872, 'st_nlink': 2}
@@ -144,4 +144,26 @@ DEBUG:fuse.log-mixin:<- access 0
 DEBUG:fuse.log-mixin:-> unlink /hello ()
 DEBUG:fuse.log-mixin:<- unlink None
 
-Q3. Yes, we can use the chmod function to change the mode of the file to 777.  OR talk about the permission (allow_other)
+Q2. Get the real user and group ids by using os.getuid() and os.getgid(). Call the chown(os.getuid(),os.getgid()) function inside the create(path,mode) and mkdir(path, mode) functions. 
+
+Q3. Yes, we did not make any changes to access() function, and the FUSE default access() function has nothing in it so the file system does not check any access permissions.
+
+Q4. I use a bitmap(16 bits) to keep track of free blocks. The initial integer value of the bitmap is 0.  In the format.py, the function initial_free_bitmap()  will loop through each block in my-disk. If the block is empty, the corresponding binary bit value will be set to 1. If the block is not empty, the value will be 0.  And then it will manually set the value to 0 at the position 0 because the next opeartion is write the bitmap into the first two bytes of block 0(Block_0[0:2]). This function will only be called once when the format.py is runed as mian. 
+
+In the format.py, the function get_free_block(num_of_blocks) will return a integer array of free block indexs. When i need select one new free block, the value 1 will be passed into the function(get_free_block(1)). First, the bitmap in block_0[0:2] will be read in integer. The integer value will be transfer to binary. Each bit value of the binary bitmap will be appended into an integer array in a reversed order.(e.g [0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]). The function will loop through the array and return the position index of the first values that is equal to 1. The position index value will be appended into an integer array as sometime it may need more than one free block. For the example above, the return value will be [2].  
+
+In the small.py, the write_block function will be put inside a for loop to write data into selected free blocks. Then the update_bit_map(used_block) function in the format.py will update the bitmap through the bit manipulation function in bit.py.  Finally, the updated bitmap will be store back to the block_0[0:2]. 
+
+ 
+
+Q5.  I also use a bitmap(16bits) to keep track of blocks allocated to a file. The block information is store in the "Location[23:25]" bytes positon of each metadata file. The initial integer value of the bitmap is 0. In the format.py, the function set_data_block_bitmap(block_num_array) will set the value to 1 for the bits which are coresponding to the block position index of the data blocks for that file. For example, a file stores data in block_3, the data bitmap will be [0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0]. 
+
+When we need to find a particular block of data associated with a file, we will read the "Location" bytes(Block[23:25]) of the metadata file and get the integer value of the bitmap. Then the integer value will be trasfer to binary value and each of the bit will be appended into an integer array in reversed order. A for loop will be use to loop through the integer array and return the position index value of the bit value which is equal to 1. The position index is the block number of the particular block of data associated with that file. The position indexs will also be appended into an integer array as there may have more than one blocks that save data for that file. 
+
+Q6.  The file name and all other file attributes will be stored in one block at the specified position(Block[25:41]). There is only one file name in that block, so the unique file name corresponds to all the metadata of that file. 
+
+I use a for loop to get the string value of the data which are stored at the position of file name(block[NAME_START:NAME_FINISH] ) for each block. Use an if statement to compare the specified file name with all the file names. If the result is true, it will return the block number(i) which is the block that stores all metadata for that file. Then use the read_block(i) function to read that whole block. Finally, use the slice function to read the bytes at the specific position which is the other attributes for that file. For example, block = read_block(1), block[2:4] will be the mode for the file. All the metada location information can be founded at the beginning of the format.py  
+
+  
+
+ 

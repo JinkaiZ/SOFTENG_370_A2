@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""
+    The format.py to use for Operating Systems Assignment 2 2021
+    written by: Jinkai Zhang
+                UPI: Jzha541
+
+"""
 
 import os
 import bits
@@ -285,15 +291,21 @@ class Format:
             else:
                 return False
 
+    def check_path_name(self,path):
+        flag = True
+        for c in path:
+            if c == '/':
+                flag = False
 
-
+        return flag
 
 
 
 
 if __name__ == '__main__':
-    Format.initial_disk(Format)
-    a = Format.get_data(Format)
+    #Format.initial_disk(Format)
+    #a = Format.get_files(Format)
+    #b = Format.check_path_name(Format, "dirdir")
     #used_block = [1,2]
     #path = '/file1'
     #a = Format.clear_metadata_block(Format, path)
@@ -301,6 +313,7 @@ if __name__ == '__main__':
     #b = [2,3,4]
     #a = Format.set_data_block_bitmap(Format,b)
     #a = Format.get_free_block(Format, 1)
-    print(a)
+    b = len("aa")
+    print(b)
 
     # block = disktools.read_block(1)
