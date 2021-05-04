@@ -286,10 +286,10 @@ class Format:
         for i in range(1,NUM_BLOCKS,1):
             block = disktools.read_block(i)
             if block[NAME_START:NAME_FINISH].decode().rstrip('\x00') == path:
-                disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0
-                return True
-            else:
-                return False
+                if disktools.bytes_to_int(block[LOCATION_START:LOCATION_FINISH]) != 0:
+                    return True
+                else:
+                    return False
 
     def check_path_name(self,path):
         flag = True

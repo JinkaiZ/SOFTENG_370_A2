@@ -178,9 +178,10 @@ class Small(LoggingMixIn, Operations):
         flag = True
         for x in self.files:
             print("This is x", x)
-            if ((x[0:length] == path) & (x != path) & (x[length:] != '')) :
+            if (x[0:length] == path)&(len(x) > length):
                 flag = False
 
+        print("The flag is", flag)
         if flag:
             self.files.pop(path)
             Format.clear_metadata_block(Format, path)
@@ -209,6 +210,7 @@ class Small(LoggingMixIn, Operations):
 
 
     def unlink(self, path):
+
         if Format.check_file_data(Format, path):
             self.data.pop(path)
             Format.clear_data_block(Format, path)
