@@ -65,6 +65,6 @@ def bytes_to_int(bytes):
     return value
         
 if __name__ == '__main__':
-    #low_level_format()
-    os.system('od  --address-radix=x -t x1 -a my-disk')
+    low_level_format()
+    os.system('od   --address-radix=x -t x1 -a my-disk')
     

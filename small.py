@@ -69,7 +69,6 @@ class Small(LoggingMixIn, Operations):
                 st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]))
 
     def create(self, path, mode):
-
         self.files[path] = dict(
             st_mode=(S_IFREG | mode),
             st_nlink=1,
@@ -145,6 +144,11 @@ class Small(LoggingMixIn, Operations):
         # update the free block bitmap
         Format.update_bit_map(Format, num_array)
 
+        # find the parent path and add the nlink by 1.
+        parent_path = Format.find_parent_path(Format, path)
+        self.files[parent_path]['st_nlink'] += 1
+        Format.update_nlink(Format, parent_path, 1)
+
     def open(self, path, flags):
         self.fd += 1
         return self.fd
@@ -153,13 +157,13 @@ class Small(LoggingMixIn, Operations):
         return self.data[path][offset:offset + size]
 
     def readdir(self, path, fh):
-        print("This is the dirct", self.files)
         length = len(path)
         if path == '/':
-            return ['.', '..'] + [x[length:] for x in self.files if (Format.check_path_name(Format,x[length:])) & (x != path)]
+            # return the files which are not '/' and there is no '/' in their path
+            return ['.', '..'] + [x[length:] for x in self.files if (Format.check_path_name(Format, x[length:])) & (x != path)]
         else:
-            for x in self.files:
-                print("This is the path", x[length +1:])
+            # return the files which have path == x[0:length] and the size of the x is larger then path and there is
+            # no '/' in their path.
             return ['.', '..'] + [x[length + 1:] for x in self.files if (Format.check_path_name(Format, x[length + 1:])) & (x[0:length] == path) & (x[length + 1:] != '')]
 
 
@@ -174,21 +178,24 @@ class Small(LoggingMixIn, Operations):
     def rmdir(self, path):
         # with multiple level support, need to raise ENOTEMPTY if contains any files
         length = len(path)
-        print("This is path", path)
+
         flag = True
         for x in self.files:
-            print("This is x", x)
+            # if the first part is equal to path and the total length is longer than path
+            # which mean it inside the path.
             if (x[0:length] == path)&(len(x) > length):
                 flag = False
 
-        print("The flag is", flag)
         if flag:
             self.files.pop(path)
             Format.clear_metadata_block(Format, path)
         else:
             raise ENOTEMPTY
 
-        #self.files['/']['st_nlink'] -= 1
+        # find the parent path and reduce the nlink by 1.
+        parent_path = Format.find_parent_path(Format, path)
+        self.files[parent_path]['st_nlink'] -= 1
+        Format.update_nlink(Format, parent_path, -1)
 
     def statfs(self, path):
         return dict(f_bsize=512, f_blocks=4096, f_bavail=2048)
@@ -210,7 +217,6 @@ class Small(LoggingMixIn, Operations):
 
 
     def unlink(self, path):
-
         if Format.check_file_data(Format, path):
             self.data.pop(path)
             Format.clear_data_block(Format, path)
@@ -225,7 +231,6 @@ class Small(LoggingMixIn, Operations):
         self.files[path]['st_mtime'] = mtime
 
     def write(self, path, data, offset, fh):
-
         self.data[path] = (
             # make sure the data gets inserted at the right offset
             self.data[path][:offset].ljust(offset, '\x00'.encode('ascii'))
@@ -257,6 +262,8 @@ class Small(LoggingMixIn, Operations):
         Format.update_file_location(Format, path, data_block_bitmap)
         # update the st_size in the metadata
         Format.update_size(Format, path, self.files[path]['st_size'])
+        # update the st_mtime in the metadata
+        Format.update_mtime(Format, path, int(time()))
         # update the free block bitmap
         Format.update_bit_map(Format, num_array)
 
