@@ -12,7 +12,7 @@ from __future__ import print_function, absolute_import, division
 import logging
 import os
 import sys
-from format import Format, MODE_START, MODE_FINISH, CTIME_START, CTIME_FINISH,MTIME_START,MTIME_FINISH,NLINK_START,NLINK_FINISH, ATIME_START, ATIME_FINISH
+from format import Format, MODE_START, MODE_FINISH, CTIME_START, CTIME_FINISH,MTIME_START,MTIME_FINISH,NLINK_START,NLINK_FINISH, ATIME_START, ATIME_FINISH, UID_START, UID_FINISH, GID_START, GID_FINISH
 import disktools
 from collections import defaultdict
 from errno import ENOENT, ENOTEMPTY
@@ -31,17 +31,21 @@ class Small(LoggingMixIn, Operations):
     'Example memory filesystem. Supports only one level of files.'
 
     def __init__(self):
-            block = disktools.read_block(0)
-            self.files = Format.get_files(Format)
-            self.data = Format.get_data(Format)
-            self.fd = 0
-            self.files['/'] = dict(
-                st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
-                st_ctime=disktools.bytes_to_int(block[CTIME_START:CTIME_FINISH]),
-                st_mtime=disktools.bytes_to_int(block[MTIME_START:MTIME_FINISH]),
-                st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH]),
-                st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]))
+        block = disktools.read_block(0)
+        self.files = Format.get_files(Format)
+        self.data = Format.get_data(Format)
+        self.fd = 0
+        self.files['/'] = dict(
+            st_mode=disktools.bytes_to_int(block[MODE_START:MODE_FINISH]),
+            st_ctime=disktools.bytes_to_int(block[CTIME_START:CTIME_FINISH]),
+            st_mtime=disktools.bytes_to_int(block[MTIME_START:MTIME_FINISH]),
+            st_atime=disktools.bytes_to_int(block[ATIME_START:ATIME_FINISH]),
+            st_nlink=disktools.bytes_to_int(block[NLINK_START:NLINK_FINISH]))
 
+        uid = disktools.bytes_to_int(block[UID_START:UID_FINISH])
+        gid = disktools.bytes_to_int(block[GID_START:GID_FINISH])
+        self.chown('/', uid, gid)
+    
     def create(self, path, mode):
         self.files[path] = dict(
             st_mode=(S_IFREG | mode),
