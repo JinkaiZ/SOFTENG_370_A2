@@ -64,7 +64,7 @@ class Small(LoggingMixIn, Operations):
         size = self.files[path].get('st_size')
         uid = os.getuid()
         gid = os.getgid()
-
+        self.chown(path, uid, gid)
         # get free block for the new created file to save the metadata.
         num_array = Format.get_free_block(Format, 1)
         block_num = num_array[0]
@@ -112,7 +112,7 @@ class Small(LoggingMixIn, Operations):
         size = self.files[path].get('st_size')
         uid = os.getuid()
         gid = os.getgid()
-
+        self.chown(path, uid, gid)
         # get free block for the new created file to save the metadata.
         num_array = Format.get_free_block(Format, 1)
         block_num = num_array[0]
