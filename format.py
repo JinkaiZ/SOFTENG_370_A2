@@ -7,6 +7,9 @@
 """
 
 import os
+from stat import S_IFDIR
+from time import time
+
 import bits
 import disktools
 from collections import defaultdict
@@ -48,6 +51,23 @@ class Format:
 
     def initial_disk(self):
         self.initial_free_block_bitmap(Format)
+        self.initial_root_metadata(Format)
+
+    def initial_root_metadata(self):
+        now = time()
+        name = '/'
+        mode = (S_IFDIR | 0o755)
+        ctime = now,
+        mtime = now,
+        atime = now,
+        nlink = 2
+        uid = os.getuid()
+        gid = os.getgid()
+        size = 0
+        block_num = 0
+        inode_data = self.set_inode(self, name, mode, ctime[0], mtime[0], atime[0], nlink, uid, gid, size, block_num)
+        disktools.write_block(0, inode_data)
+
 
     """ loop through the disk and create the initial bitmap for the disk. 0 means used, 1 means free """
     def initial_free_block_bitmap(self):

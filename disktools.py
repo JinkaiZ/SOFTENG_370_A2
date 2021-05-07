@@ -48,7 +48,6 @@ def print_block(block_num):
 def int_to_bytes(value, num_bytes):
     '''Store positive integer value in a big-endian bytearray of num_bytes.'''
     bytes = bytearray(num_bytes)
-    # From the num_bytes reduce to 0.
     for i in range(num_bytes - 1, -1, -1):
         nbyte = value % 256
         bytes[i] = nbyte
@@ -66,5 +65,5 @@ def bytes_to_int(bytes):
         
 if __name__ == '__main__':
     low_level_format()
-    os.system('od   --address-radix=x -t x1 -a my-disk')
+    os.system('od --address-radix=x -t x1 -a my-disk')
     

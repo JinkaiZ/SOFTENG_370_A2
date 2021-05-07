@@ -31,33 +31,7 @@ class Small(LoggingMixIn, Operations):
     'Example memory filesystem. Supports only one level of files.'
 
     def __init__(self):
-        block = disktools.read_block(0)
-        if disktools.bytes_to_int(block[2:44]) == 0:
-            self.files = {}
-            self.data = defaultdict(bytes)
-            self.fd = 0
-            now = time()
-            self.files['/'] = dict(
-                st_mode=(S_IFDIR | 0o755),
-                st_ctime=now,
-                st_mtime=now,
-                st_atime=now,
-                st_nlink=2)
-
-            # get all the metadata for the root directory
-            dir_name = '/'
-            mode = self.files['/'].get('st_mode')
-            ctime = self.files['/'].get('st_ctime')
-            mtime = self.files['/'].get('st_mtime')
-            atime = self.files['/'].get('st_atime')
-            nlink = self.files['/'].get('st_nlink')
-            size = sys.getsizeof(self.files['/'])
-            uid = os.getuid()
-            gid = os.getgid()
-            # write all the metadata into disk
-            inode_data = Format.set_inode(Format, dir_name, mode, ctime, mtime, atime, nlink, uid, gid,size,0)
-            disktools.write_block(0, inode_data)
-        else:
+            block = disktools.read_block(0)
             self.files = Format.get_files(Format)
             self.data = Format.get_data(Format)
             self.fd = 0
