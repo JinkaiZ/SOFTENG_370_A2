@@ -33,6 +33,12 @@ class Memory(LoggingMixIn, Operations):
             st_atime=now,
             st_nlink=2)
 
+          # change owner to the real user.
+        uid = os.getuid()
+        gid = os.getgid()
+
+        self.chown('/', uid, gid)
+
     def chmod(self, path, mode):
         self.files[path]['st_mode'] &= 0o770000
         self.files[path]['st_mode'] |= mode
@@ -102,6 +108,7 @@ class Memory(LoggingMixIn, Operations):
         return self.data[path][offset:offset + size]
 
     def readdir(self, path, fh):
+        print(self.files)
         return ['.', '..'] + [x[1:] for x in self.files if x != '/']
 
     def readlink(self, path):
